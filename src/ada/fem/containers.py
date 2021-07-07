@@ -30,9 +30,10 @@ class FemElements:
         if from_np_array is not None:
             elements = self.elements_from_array(from_np_array)
 
-        self._elements = list(elements) if elements is not None else []
+        self._elements = list(sorted(elements, key=attrgetter("id"))) if elements is not None else []
         self._idmap = {e.id: e for e in self._elements} if len(self._elements) > 0 else dict()
-
+        if len(self._idmap) != len(self._elements):
+            raise ValueError("Unequal length of idmap and elements. Might indicate doubly defined element id's")
         self._group_by_types()
 
     def renumber(self):
@@ -370,7 +371,7 @@ class FemElements:
                 return False if el.type.lower() in delete_elem else True
 
         self._elements = list(filter(eval_elem, self._elements))
-        self._by_types = dict(groupby(self._elements, key=attrgetter("type")))
+        self._by_types = dict(self.group_by_type())
         self._idmap = {e.id: e for e in self._elements}
 
     @property
@@ -421,6 +422,9 @@ class FemElements:
             else:
                 logging.error(f"'{elem}' not found in {self.__class__.__name__}-container.")
         self._sort()
+
+    def group_by_type(self):
+        return groupby(sorted(self._elements, key=attrgetter("type")), key=attrgetter("type"))
 
     def _group_by_types(self):
         if len(self._elements) > 0:
@@ -670,6 +674,7 @@ class FemSets:
             else:
                 el_type = Node
                 get_func = get_nset
+
             res = list(filter(lambda x: type(x) != el_type, fset.members))
             if len(res) > 0:
                 fset._members = [get_func(m) for m in fset.members]

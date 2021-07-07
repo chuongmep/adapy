@@ -1,7 +1,5 @@
 import logging
 import os
-from itertools import groupby
-from operator import attrgetter
 
 import meshio
 import numpy as np
@@ -94,7 +92,7 @@ def fem_to_meshio(fem):
         return [int(n.id - 1) for n in el_.nodes]
 
     cells = []
-    for group, elements in groupby(fem.elements, key=attrgetter("type")):
+    for group, elements in fem.elements.group_by_type():
         if group in ElemShapes.masses + ElemShapes.springs:
             logging.error("NotImplemented: Skipping Mass or Spring Elements")
             continue

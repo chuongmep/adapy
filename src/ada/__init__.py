@@ -596,7 +596,7 @@ class Part(BackendGeom):
                 if mat.name == name:
                     return mat
 
-        logging.error(f'Unable to find"{name}". Check if the element type is evaluated in the algorithm')
+        logging.debug(f'Unable to find"{name}". Check if the element type is evaluated in the algorithm')
         return None
 
     def get_all_parts_in_assembly(self, include_self=False):
@@ -980,11 +980,11 @@ class Assembly(Part):
             enable_experimental_cache = _Settings.use_experimental_cache
         self._enable_experimental_cache = enable_experimental_cache
 
-        if self._enable_experimental_cache is True:
-            state_path = pathlib.Path("").parent.resolve().absolute() / ".state" / self.name
-            self._state_file = state_path.with_suffix(".json")
-            self._cache_file = state_path.with_suffix(".h5")
+        state_path = pathlib.Path("").parent.resolve().absolute() / ".state" / self.name
+        self._state_file = state_path.with_suffix(".json")
+        self._cache_file = state_path.with_suffix(".h5")
 
+        if self._enable_experimental_cache is True:
             if self._cache_file.exists() and clear_cache:
                 os.remove(self._cache_file)
             if self._state_file.exists() and clear_cache:
@@ -1067,7 +1067,7 @@ class Assembly(Part):
 
         read_assembly_from_cache(self._cache_file, self)
         self._cache_loaded = True
-        print(f"Loading model from cache {self._cache_file}")
+        print(f"Finished Loading model from cache {self._cache_file}")
 
     def update_cache(self):
         from ada._cache.writer import write_assembly_to_cache
@@ -1118,7 +1118,6 @@ class Assembly(Part):
                 pp = get_parent(product)
                 if pp is None:
                     continue
-                parent_type = pp.is_a()
                 name = get_name(product)
                 if pr_type in [
                     "IfcBuilding",
@@ -1128,19 +1127,13 @@ class Assembly(Part):
                 ]:
                     props = getIfcPropertySets(product)
                     new_part = Part(name, ifc_elem=product, metadata=dict(original_name=name, props=props))
-                    if parent_type in [
-                        "IfcSite",
-                        "IfcSpace",
-                        "IfcBuilding",
-                        "IfcBuildingStorey",
-                        "IfcSpatialZone",
-                    ]:
+                    res = self.get_by_name(pp.Name)
+                    if res is None:
                         self.add_part(new_part)
-                        # self.ifc_file.add(new_part.ifc_elem)
+                    elif type(res) is not Part:
+                        raise NotImplementedError()
                     else:
-                        for p in self.get_all_parts_in_assembly():
-                            if p.name == pp.Name:
-                                p.add_part(new_part)
+                        res.add_part(new_part)
 
         # Get physical elements
         for product in f.by_type("IfcProduct"):
@@ -4610,7 +4603,7 @@ class Section(Backend):
             else:
                 if SectionCat.is_strong_axis_symmetric(self) is False:
                     logging.error(
-                        "Note! Not using IfcAsymmetricIShapeProfileDef as it is not supported by ifcopenshell"
+                        "Note! Not using IfcAsymmetricIShapeProfileDef as it is not supported by ifcopenshell v IFC4"
                     )
                     # ifc_sec_type = "IfcAsymmetricIShapeProfileDef"
                     # sec_props.update(
@@ -4640,6 +4633,10 @@ class Section(Backend):
             ifc_polyline = f.createIfcPolyLine(points)
             ifc_sec_type = "IfcArbitraryClosedProfileDef"
             sec_props.update(dict(OuterCurve=ifc_polyline))
+
+            if _Settings.use_param_profiles is True:
+                logging.error(f'Export of "{self.type}" profile to parametric IFC profile is not yet added')
+
         elif SectionCat.is_box_profile(self.type):
             outer_curve, inner_curve, disconnected = self.cross_sec(True)
             outer_points = [f.createIfcCartesianPoint(p) for p in outer_curve + [outer_curve[0]]]
@@ -4648,6 +4645,10 @@ class Section(Backend):
             outer_curve = f.createIfcPolyLine(outer_points)
             ifc_sec_type = "IfcArbitraryProfileDefWithVoids"
             sec_props.update(dict(OuterCurve=outer_curve, InnerCurves=[inner_curve]))
+
+            if _Settings.use_param_profiles is True:
+                logging.error(f'Export of "{self.type}" profile to parametric IFC profile is not yet added')
+
         elif self.type in SectionCat.circular:
             ifc_sec_type = "IfcCircleProfileDef"
             sec_props.update(dict(Radius=self.r))
@@ -4664,6 +4665,10 @@ class Section(Backend):
             polyline = create_ifcpolyline(f, outer_curve)
             ifc_sec_type = "IfcArbitraryClosedProfileDef"
             sec_props.update(dict(OuterCurve=polyline))
+
+            if _Settings.use_param_profiles is True:
+                logging.error(f'Export of "{self.type}" profile to parametric IFC profile is not yet added')
+
         elif self.type in SectionCat.channels:
             if _Settings.use_param_profiles is False:
                 outer_curve, inner_curve, disconnected = self.cross_sec(True)
@@ -4851,6 +4856,13 @@ class Section(Backend):
     def units(self, value):
         if self._units != value:
             scale_factor = self._unit_conversion(self._units, value)
+
+            if self.poly_inner is not None:
+                self.poly_inner.scale(scale_factor, _Settings.point_tol)
+
+            if self.poly_outer is not None:
+                self.poly_outer.scale(scale_factor, _Settings.point_tol)
+
             vals = ["h", "w_top", "w_btn", "t_w", "t_ftop", "t_fbtn", "r", "wt"]
 
             for key in self.__dict__.keys():
@@ -4876,7 +4888,7 @@ class Section(Backend):
         """
 
         :return:
-        :rtype: PolyCurve
+        :rtype: CurvePoly
         """
         return self._outer_poly
 
@@ -4885,7 +4897,7 @@ class Section(Backend):
         """
 
         :return:
-        :rtype: PolyCurve
+        :rtype: CurvePoly
         """
         return self._inner_poly
 

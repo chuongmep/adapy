@@ -1,4 +1,5 @@
 import json
+import logging
 
 import h5py
 
@@ -27,6 +28,9 @@ def walk_parts(cache_p, parent):
         if type(p) is h5py.Dataset:
             continue
         unsafe_name = from_safe_name(name)
+        parent_name = from_safe_name(p.attrs.get("PARENT"))
+        if parent.name != parent_name:
+            logging.error("Unable to retrieve proper Hierarchy from HDF5 cache")
         curr_p = parent.add_part(get_part_from_cache(unsafe_name, p))
         walk_parts(p, curr_p)
 
@@ -120,9 +124,14 @@ def get_materials_from_cache(part_cache, parent):
 
     def mat_from_list(mat_int, mat_str):
         guid, name, units = str_fix(mat_str)
-        E, rho, sigy = mat_int
+        E, rho, sigy, mat_id = mat_int
         return Material(
-            name=name, guid=guid, units=units, mat_model=CarbonSteel(E=E, rho=rho, sig_y=sigy), parent=parent
+            name=name,
+            guid=guid,
+            mat_id=mat_id,
+            units=units,
+            mat_model=CarbonSteel(E=E, rho=rho, sig_y=sigy),
+            parent=parent,
         )
 
     return Materials([mat_from_list(mat_int, mat_str) for mat_int, mat_str in zip(mat_int, mat_str)], parent=parent)

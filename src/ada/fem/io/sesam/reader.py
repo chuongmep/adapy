@@ -822,13 +822,10 @@ def get_constraints(bulk_str, fem):
 
 
 def get_springs(bulk_str, fem):
-    from itertools import groupby
-    from operator import attrgetter
-
     import numpy as np
 
     gr_spr_elements = None
-    for eltype, elements in groupby(fem.elements, key=attrgetter("type")):
+    for eltype, elements in fem.elements.group_by_type():
         if eltype == "SPRING1":
             gr_spr_elements = {el.metadata["matno"]: el for el in elements}
 

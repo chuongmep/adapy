@@ -1,6 +1,4 @@
 import logging
-from itertools import groupby
-from operator import attrgetter
 
 import numpy as np
 
@@ -587,7 +585,7 @@ def _write_elements(part, time_step, profile, families):
 
     elements_group = time_step.create_group("MAI")
     elements_group.attrs.create("CGT", 1)
-    for group, elements in groupby(part.fem.elements, key=attrgetter("type")):
+    for group, elements in part.fem.elements.group_by_type():
         if group in ElemShapes.masses + ElemShapes.springs:
             logging.error("NotImplemented: Skipping Mass or Spring Elements")
             continue
@@ -714,7 +712,7 @@ def _add_cell_sets(cells_group, part, families):
     def get_node_ids_from_element(el_):
         return [int(n.id - 1) for n in el_.nodes]
 
-    for group, elements in groupby(part.fem.elements, key=attrgetter("type")):
+    for group, elements in part.fem.elements.group_by_type():
         if group in ElemShapes.masses + ElemShapes.springs:
             logging.error("NotImplemented: Skipping Mass or Spring Elements")
             continue

@@ -3239,7 +3239,8 @@ def make_name_fem_ready(value, no_dot=False):
 
     if "/" in value:
         logging.error(f'Character "/" found in {value}')
-
+    if "-" in value:
+        value = value.replace("-", "_")
     if no_dot:
         value = value.replace(".", "_")
 
@@ -3262,3 +3263,7 @@ def closest_val_in_dict(val, dct):
     table_looksups = np.array(list(dct))
     dct_index = table_looksups[np.abs(table_looksups - val).argmin()]
     return dct[dct_index]
+
+
+def flatten(t):
+    return [item for sublist in t for item in sublist]
