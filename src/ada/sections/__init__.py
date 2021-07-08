@@ -806,33 +806,56 @@ class SectionCat:
                 return True
         return False
 
+    @staticmethod
+    def _get_sec_type(section_ref):
+        from ada import Beam, Section
+
+        if type(section_ref) is Section:
+            return section_ref.type.upper()
+        if type(section_ref) is Beam:
+            return section_ref.section.type.upper()
+        else:
+            return section_ref.upper()
+
     @classmethod
     def is_i_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.igirders + cls.iprofiles + cls.tprofiles else False
+        return True if cls._get_sec_type(bmtype) in cls.igirders + cls.iprofiles else False
+
+    @classmethod
+    def is_t_profile(cls, bmtype):
+        return True if cls._get_sec_type(bmtype) in cls.tprofiles else False
 
     @classmethod
     def is_box_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.box + cls.shs + cls.rhs else False
+        return True if cls._get_sec_type(bmtype) in cls.box + cls.shs + cls.rhs else False
 
     @classmethod
     def is_hp_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.angular else False
+        return True if cls._get_sec_type(bmtype) in cls.angular else False
 
     @classmethod
     def is_circular_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.tubular + cls.circular else False
+        return True if cls._get_sec_type(bmtype) in cls.circular else False
 
     @classmethod
     def is_tubular_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.tubular else False
+        return True if cls._get_sec_type(bmtype) in cls.tubular else False
 
     @classmethod
     def is_channel_profile(cls, bmtype):
-        return True if bmtype.upper() in cls.channels else False
+        return True if cls._get_sec_type(bmtype) in cls.channels else False
 
     @classmethod
     def is_flatbar(cls, bmtype):
-        return True if bmtype.upper() in cls.flatbar else False
+        return True if cls._get_sec_type(bmtype) in cls.flatbar else False
+
+    @classmethod
+    def is_general(cls, bmtype):
+        return True if cls._get_sec_type(bmtype) in cls.general else False
+
+    @classmethod
+    def is_angular(cls, bmtype):
+        return True if cls._get_sec_type(bmtype) in cls.angular else False
 
     @classmethod
     def is_strong_axis_symmetric(cls, section):

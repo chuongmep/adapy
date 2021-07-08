@@ -135,8 +135,11 @@ def add_walls_to_cache():
 def add_beams_to_cache(part: Part, parts_group):
     prefix = "BEAMS"
 
-    def add_int_cache(bm: Beam):
-        nids = [bm.n1.id, bm.n2.id]
+    def add_int_cache(bm: Beam, up=False):
+        if up is True:
+            nids = bm.up.tolist()
+        else:
+            nids = [bm.n1.id, bm.n2.id]
         if None in nids:
             raise ValueError()
         return nids
@@ -146,6 +149,7 @@ def add_beams_to_cache(part: Part, parts_group):
 
     parts_group.create_dataset(f"{prefix}_INT", data=[add_int_cache(bm) for bm in part.beams])
     parts_group.create_dataset(f"{prefix}_STR", data=[add_str_cache(bm) for bm in part.beams])
+    parts_group.create_dataset(f"{prefix}_UP", data=[add_int_cache(bm, True) for bm in part.beams])
 
 
 def add_fem_to_cache(fem, part_group):

@@ -152,14 +152,21 @@ USER:     {user}            ACCOUNT:     \n"""
         ircon = Counter(1)
         shid = Counter(1)
         bmid = Counter(1)
+
+        sec_n = Counter(1, "_V")
+        sec_names = []
         for fem_sec in self._gsections:
             assert isinstance(fem_sec, FemSection)
             if fem_sec.type == "beam":
-                section = fem_sec.section
-                if section not in sec_ids:
+                sec = fem_sec.section
+                if sec not in sec_ids:
                     secid = next(bmid)
                     sec_name = make_name_fem_ready(fem_sec.section.name, no_dot=True)
-                    section.metadata["numid"] = secid
+                    if sec_name not in sec_names:
+                        sec_names.append(sec_name)
+                    else:
+                        sec_name += next(sec_n)
+                    sec.metadata["numid"] = secid
                     names_str += self.write_ff(
                         "TDSECT",
                         [
@@ -199,8 +206,8 @@ USER:     {user}            ACCOUNT:     \n"""
                         concept_str += self.write_ff("SCONMESH", mesh_args)
                         concept_str += self.write_ff("GUNIVEC", [(next(g), *beam.up)])
 
-                    section.properties.calculate()
-                    p = section.properties
+                    sec.properties.calculate()
+                    p = sec.properties
                     sec_str += self.write_ff(
                         "GBEAMG",
                         [
@@ -211,47 +218,45 @@ USER:     {user}            ACCOUNT:     \n"""
                         ],
                     )
 
-                    if SectionCat.is_i_profile(section.type):
+                    if SectionCat.is_i_profile(sec.type):
                         sec_str += self.write_ff(
                             "GIORH",
                             [
-                                (secid, section.h, section.t_w, section.w_top),
-                                (section.t_ftop, section.w_btn, section.t_fbtn, p.Sfy),
+                                (secid, sec.h, sec.t_w, sec.w_top),
+                                (sec.t_ftop, sec.w_btn, sec.t_fbtn, p.Sfy),
                                 (p.Sfz,),
                             ],
                         )
-                    elif SectionCat.is_hp_profile(section.type):
+                    elif SectionCat.is_hp_profile(sec.type):
                         sec_str += self.write_ff(
                             "GLSEC",
                             [
-                                (secid, section.h, section.t_w, section.w_btn),
-                                (section.t_fbtn, p.Sfy, p.Sfz, 1),
+                                (secid, sec.h, sec.t_w, sec.w_btn),
+                                (sec.t_fbtn, p.Sfy, p.Sfz, 1),
                             ],
                         )
-                    elif SectionCat.is_box_profile(section.type):
+                    elif SectionCat.is_box_profile(sec.type):
                         sec_str += self.write_ff(
                             "GBOX",
                             [
-                                (secid, section.h, section.t_w, section.t_fbtn),
-                                (section.t_ftop, section.w_btn, p.Sfy, p.Sfz),
+                                (secid, sec.h, sec.t_w, sec.t_fbtn),
+                                (sec.t_ftop, sec.w_btn, p.Sfy, p.Sfz),
                             ],
                         )
-                    elif SectionCat.is_tubular_profile(section.type):
+                    elif SectionCat.is_tubular_profile(sec.type):
                         sec_str += self.write_ff(
                             "GPIPE",
-                            [(secid, (section.r - section.wt) * 2, section.r * 2, section.wt), (p.Sfy, p.Sfz)],
+                            [(secid, (sec.r - sec.wt) * 2, sec.r * 2, sec.wt), (p.Sfy, p.Sfz)],
                         )
-                    elif SectionCat.is_circular_profile(section.type):
+                    elif SectionCat.is_circular_profile(sec.type):
                         sec_str += self.write_ff(
                             "GPIPE",
-                            [(secid, (section.r - section.r * 0.99) * 2, section.r * 2, section.wt), (p.Sfy, p.Sfz)],
+                            [(secid, (sec.r - sec.r * 0.99) * 2, sec.r * 2, sec.wt), (p.Sfy, p.Sfz)],
                         )
-                    elif SectionCat.is_flatbar(section.type):
-                        sec_str += self.write_ff(
-                            "GBARM", [(secid, section.h, section.w_top, section.w_btn), (p.Sfy, p.Sfz)]
-                        )
+                    elif SectionCat.is_flatbar(sec.type):
+                        sec_str += self.write_ff("GBARM", [(secid, sec.h, sec.w_top, sec.w_btn), (p.Sfy, p.Sfz)])
                     else:
-                        logging.error(f'Unable to convert "{section}". This will be exported as general section only')
+                        logging.error(f'Unable to convert "{sec}". This will be exported as general section only')
 
             elif fem_sec.type == "shell":
                 if fem_sec.thickness not in thick_map.keys():

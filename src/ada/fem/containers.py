@@ -32,8 +32,10 @@ class FemElements:
 
         self._elements = list(sorted(elements, key=attrgetter("id"))) if elements is not None else []
         self._idmap = {e.id: e for e in self._elements} if len(self._elements) > 0 else dict()
+
         if len(self._idmap) != len(self._elements):
             raise ValueError("Unequal length of idmap and elements. Might indicate doubly defined element id's")
+
         self._group_by_types()
 
     def renumber(self):

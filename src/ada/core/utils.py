@@ -3233,14 +3233,20 @@ def make_name_fem_ready(value, no_dot=False):
     :return: Fixed name
     """
     logging.debug("Converting bad name")
+
+    if value[0] == "/":
+        value = value[1:]
+
     value = value.replace("/", "_").replace("=", "")
     if str.isnumeric(value[0]):
         value = "_" + value
 
     if "/" in value:
         logging.error(f'Character "/" found in {value}')
-    if "-" in value:
-        value = value.replace("-", "_")
+
+    # if "-" in value:
+    #     value = value.replace("-", "_")
+
     if no_dot:
         value = value.replace(".", "_")
 
