@@ -141,7 +141,7 @@ class Beams(BaseCollections):
             vol_new = vol_
         vol = vol_new
 
-        def sort_bms(bms):
+        def sort_beams(bms):
             xkeys = [key[1] for key in bms]
             xmin = bisect_left(xkeys, vol[0][0])
             xmax = bisect_right(xkeys, vol[0][1])
@@ -164,7 +164,7 @@ class Beams(BaseCollections):
         bm_list1 = [(bm.name, bm.n1.x, bm.n1.y, bm.n1.z) for bm in sorted(self._beams, key=lambda bm: bm.n1.x)]
         bm_list2 = [(bm.name, bm.n2.x, bm.n2.y, bm.n2.z) for bm in sorted(self._beams, key=lambda bm: bm.n2.x)]
 
-        return list(set([self._dmap[bm_id] for bms_ in (bm_list1, bm_list2) for bm_id in sort_bms(bms_)]))
+        return list([self._dmap[bm_id] for bms_ in (bm_list1, bm_list2) for bm_id in sort_beams(bms_)])
 
     @property
     def dmap(self):
@@ -674,7 +674,7 @@ class Sections:
 
         if section.id is None or section.id in self._idmap.keys():
             new_sec_id = len(self._sections) + 1
-            section.edit(sec_id=new_sec_id)
+            section.id = new_sec_id
 
         self._sections.append(section)
         self._idmap[section.id] = section

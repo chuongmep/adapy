@@ -91,7 +91,7 @@ class Part(BackendGeom):
         ifc_elem=None,
         guid=None,
     ):
-        super().__init__(name, guid=guid, metadata=metadata, units=units, parent=parent)
+        super().__init__(name, guid=guid, metadata=metadata, units=units, parent=parent, ifc_elem=ifc_elem)
         from ada.fem.io.mesh import GMesh
 
         self._nodes = Nodes(parent=self)
@@ -114,10 +114,8 @@ class Part(BackendGeom):
         if ifc_elem is not None:
             self.metadata["ifctype"] = self._import_part_from_ifc(ifc_elem)
         else:
-            if hasattr(metadata, "ifctype") is False:
+            if self.metadata.get("ifctype") is None:
                 self.metadata["ifctype"] = "site" if type(self) is Assembly else "storey"
-
-        self._ifc_elem = None
 
         self._props = settings
         if fem is not None:
@@ -689,8 +687,10 @@ class Part(BackendGeom):
             ObjectPlacement=placement,
             Representation=None,
             LongName=self.metadata.get("LongName", None),
-            CompositionType=self.metadata.get("CompositionType", "ELEMENT"),
         )
+
+        if ifc_type not in ["IfcSpatialZone"]:
+            props["CompositionType"] = self.metadata.get("CompositionType", "ELEMENT")
 
         if ifc_type == "IfcBuildingStorey":
             props["Elevation"] = self.origin[2]
@@ -887,12 +887,6 @@ class Part(BackendGeom):
 
                 self._ifc_file = assembly_to_ifc_file(self)
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_elem()
-        return self._ifc_elem
-
     def __truediv__(self, other_object):
         if type(other_object) in [list, tuple]:
             for obj in other_object:
@@ -955,7 +949,6 @@ class Assembly(Part):
         clear_cache=False,
         enable_experimental_cache=None,
     ):
-
         from ada.core.ifc_utils import assembly_to_ifc_file
 
         metadata = dict() if metadata is None else metadata
@@ -1019,6 +1012,16 @@ class Assembly(Part):
                 is_cache_outdated = True
 
         return is_cache_outdated
+
+    def reset_ifc_file(self):
+        from ada.core.ifc_utils import assembly_to_ifc_file
+
+        self._ifc_file = assembly_to_ifc_file(self)
+
+        for p in self.get_all_parts_in_assembly(True):
+            p._ifc_elem = None
+            for bm in p.beams:
+                bm._ifc_elem = None
 
     def _from_cache(self, input_file=None):
         is_cache_outdated = self.is_cache_outdated(input_file)
@@ -1386,6 +1389,8 @@ class Assembly(Part):
 
         for p in self.get_all_parts_in_assembly(include_self=True):
             assert issubclass(type(p), Part)
+            part_ifc = p.ifc_elem
+
             physical_objects = []
             for m in p.materials.dmap.values():
                 f.add(m.ifc_mat)
@@ -1435,7 +1440,7 @@ class Assembly(Part):
                 "Physical model",
                 None,
                 physical_objects,
-                p.ifc_elem,
+                part_ifc,
             )
 
         if len(self.presentation_layers) > 0:
@@ -1652,8 +1657,7 @@ class Beam(BackendGeom):
         ifc_elem=None,
         guid=None,
     ):
-        super().__init__(name, metadata=metadata, units=units, guid=guid)
-        self._ifc_elem = None
+        super().__init__(name, metadata=metadata, units=units, guid=guid, ifc_elem=ifc_elem)
 
         if ifc_elem is not None:
             props = self._import_from_ifc_beam(ifc_elem)
@@ -1667,6 +1671,7 @@ class Beam(BackendGeom):
             ifc_geom = props["ifc_geom"]
             colour = props["colour"]
             opacity = props["opacity"]
+            self.metadata.update(props["props"])
 
         if curve is not None:
             curve.parent = self
@@ -1804,7 +1809,7 @@ class Beam(BackendGeom):
         zmin, zmax = zv[0], zv[-1]
         return (xmin, ymin, zmin), (xmax, ymax, zmax)
 
-    def _generate_ifc_beam(self):
+    def _generate_ifc_elem(self):
         from ada.config import Settings
         from ada.core.constants import O, X, Z
         from ada.core.ifc_utils import (
@@ -1977,10 +1982,14 @@ class Beam(BackendGeom):
         return ifc_beam
 
     def _import_from_ifc_beam(self, ifc_elem):
-        from ada.core.ifc_utils import get_association, get_name, get_representation
+        from ada.core.ifc_utils import (
+            get_association,
+            get_name,
+            get_representation,
+            getIfcPropertySets,
+        )
 
         ass = get_association(ifc_elem)
-
         sec = Section(ass.Profile.ProfileName, ifc_elem=ass.Profile)
         mat = Material(ass.Material.Name, ifc_mat=ass.Material)
 
@@ -2016,6 +2025,8 @@ class Beam(BackendGeom):
                 int(style.SurfaceColour.Blue),
             )
 
+        props = getIfcPropertySets(ifc_elem)
+
         return dict(
             name=get_name(ifc_elem),
             n1=p1,
@@ -2027,6 +2038,7 @@ class Beam(BackendGeom):
             colour=colour,
             opacity=alpha,
             guid=ifc_elem.GlobalId,
+            props=props,
         )
 
     def calc_con_points(self, point_tol=_Settings.point_tol):
@@ -2332,12 +2344,30 @@ class Beam(BackendGeom):
 
         return geom
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_beam()
+    def __eq__(self, other):
+        """
 
-        return self._ifc_elem
+        :param other:
+        :type other: ada.Beam
+        """
+        for key, val in self.__dict__.items():
+            if "parent" in key or key in ["_ifc_settings", "_ifc_elem"]:
+                continue
+            oval = other.__dict__[key]
+
+            if type(val) in (list, tuple, np.ndarray):
+                if False in [x == y for x, y in zip(oval, val)]:
+                    return False
+            try:
+                res = oval != val
+            except ValueError as e:
+                logging.error(e)
+                return True
+
+            if res is True:
+                return False
+
+        return True
 
     def __repr__(self):
         p1s = self.n1.p.tolist()
@@ -2383,8 +2413,8 @@ class Plate(BackendGeom):
         **kwargs,
     ):
         # TODO: Support generation of plate object from IFC elem
-        super().__init__(name, guid=guid, metadata=metadata, units=units)
-        self._ifc_elem = None
+        super().__init__(name, guid=guid, metadata=metadata, units=units, ifc_elem=ifc_elem)
+
         points2d = None
         points3d = None
         if ifc_elem is not None:
@@ -2434,7 +2464,7 @@ class Plate(BackendGeom):
         self._bbox = None
         self._opacity = opacity
 
-    def _generate_ifc_plate(self):
+    def _generate_ifc_elem(self):
         from ada.core.constants import O, X, Z
         from ada.core.ifc_utils import (
             add_colour,
@@ -2718,12 +2748,6 @@ class Plate(BackendGeom):
             self.material.units = value
             self._units = value
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_plate()
-        return self._ifc_elem
-
     def __repr__(self):
         return f"Plate({self.name}, t:{self.t}, {self.material})"
 
@@ -2740,10 +2764,20 @@ class Pipe(BackendGeom):
     :param colour:
     """
 
-    def __init__(self, name, points, sec, mat="S355", content=None, metadata=None, colour=None, units="m", guid=None):
-        super().__init__(name, guid=guid, metadata=metadata, units=units)
-
-        self._ifc_elem = None
+    def __init__(
+        self,
+        name,
+        points,
+        sec,
+        mat="S355",
+        content=None,
+        metadata=None,
+        colour=None,
+        units="m",
+        guid=None,
+        ifc_elem=None,
+    ):
+        super().__init__(name, guid=guid, metadata=metadata, units=units, ifc_elem=ifc_elem)
 
         self._section = sec
         sec.parent = self
@@ -3032,13 +3066,13 @@ class PipeSegStraight(BackendGeom):
         metadata=None,
         units="m",
         colour=None,
+        ifc_elem=None,
     ):
-        super(PipeSegStraight, self).__init__(name, guid, metadata, units, parent, colour)
+        super(PipeSegStraight, self).__init__(name, guid, metadata, units, parent, colour, ifc_elem=ifc_elem)
         self.p1 = p1
         self.p2 = p2
         self.section = section
         self.material = material
-        self._ifc_elem = None
 
     @property
     def xvec1(self):
@@ -3052,13 +3086,7 @@ class PipeSegStraight(BackendGeom):
 
         return sweep_pipe(edge, self.xvec1, self.section.r, self.section.wt)
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._to_ifc_elem()
-        return self._ifc_elem
-
-    def _to_ifc_elem(self):
+    def _generate_ifc_elem(self):
         from ada.core.constants import O, X, Z
         from ada.core.ifc_utils import (  # create_ifcrevolveareasolid,
             create_global_axes,
@@ -3157,7 +3185,6 @@ class PipeSegElbow(BackendGeom):
         self.section = section
         self.material = material
         self._arc_seg = arc_seg
-        self._ifc_elem = None
 
     @property
     def xvec1(self):
@@ -3194,12 +3221,6 @@ class PipeSegElbow(BackendGeom):
         :rtype: ArcSegment
         """
         return self._arc_seg
-
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._to_ifc_elem()
-        return self._ifc_elem
 
     def _elbow_tesselated(self, f, schema, a, context):
         import ifcopenshell.geom
@@ -3256,7 +3277,7 @@ class PipeSegElbow(BackendGeom):
 
         return prod_def_shp
 
-    def _to_ifc_elem(self):
+    def _generate_ifc_elem(self):
         from ada.core.ifc_utils import create_local_placement
 
         if self.parent is None:
@@ -3328,9 +3349,8 @@ class Wall(BackendGeom):
         units="m",
         guid=None,
     ):
-        super().__init__(name, guid=guid, metadata=metadata, units=units)
+        super().__init__(name, guid=guid, metadata=metadata, units=units, ifc_elem=ifc_elem)
 
-        self._ifc_elem = ifc_elem
         if ifc_elem is not None:
             self._import_from_ifc(ifc_elem)
 
@@ -3728,12 +3748,6 @@ class Wall(BackendGeom):
 
             self._units = value
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_elem()
-        return self._ifc_elem
-
     def __repr__(self):
         return f"Wall({self.name})"
 
@@ -3762,13 +3776,12 @@ class Shape(BackendGeom):
         guid=None,
     ):
 
-        super().__init__(name, guid=guid, metadata=metadata, units=units)
+        super().__init__(name, guid=guid, metadata=metadata, units=units, ifc_elem=ifc_elem)
         if type(geom) is str:
             from OCC.Extend.DataExchange import read_step_file
 
             geom = read_step_file(geom)
 
-        self._ifc_elem = ifc_elem
         if ifc_elem is not None:
             self.guid = ifc_elem.GlobalId
             self._import_from_ifc_elem(ifc_elem)
@@ -4083,13 +4096,6 @@ class Shape(BackendGeom):
 
             self._units = value
 
-    @property
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_elem()
-
-        return self._ifc_elem
-
 
 class PrimSphere(Shape):
     def __init__(self, name, pnt, radius, colour=None, opacity=1.0, metadata=None, units="m"):
@@ -4353,7 +4359,6 @@ class PrimSweep(Shape):
         sweep_curve.parent = self
         profile_curve_outer.parent = self
 
-        self._ifc_elem = None
         self._sweep_curve = sweep_curve
         self._profile_curve_outer = profile_curve_outer
         self._profile_curve_inner = profile_curve_inner
@@ -4526,7 +4531,7 @@ class Section(Backend):
         ifc_elem=None,
         guid=None,
     ):
-        super(Section, self).__init__(name, guid, metadata, units)
+        super(Section, self).__init__(name, guid, metadata, units, ifc_elem=ifc_elem)
         self._type = sec_type
         self._h = h
         self._w_top = w_top
@@ -4536,7 +4541,7 @@ class Section(Backend):
         self._t_fbtn = t_fbtn
         self._r = r
         self._wt = wt
-        self._sec_id = sec_id
+        self._id = sec_id
         self._outer_poly = outer_poly
         self._inner_poly = inner_poly
         self._sec_str = sec_str
@@ -4546,7 +4551,7 @@ class Section(Backend):
         self._ifc_beam_type = None
 
         if ifc_elem is not None:
-            props = self._import_from_ifc_beam(ifc_elem)
+            props = self._import_from_ifc_profile(ifc_elem)
             self.__dict__.update(props.__dict__)
 
         if from_str is not None:
@@ -4568,22 +4573,13 @@ class Section(Backend):
 
     def __eq__(self, other):
         for key, val in self.__dict__.items():
-            if "parent" in key or key in ["_sec_id"]:
+            if "parent" in key or "_ifc" in key or key in ["_sec_id", "_guid"]:
                 continue
-            if other.__dict__[key] != val:
+            oval = other.__dict__[key]
+            if oval != val:
                 return False
 
         return True
-
-    def edit(self, sec_id=None, parent=None):
-        """
-
-        :param sec_id:
-        :param parent:
-        :return:
-        """
-        self._sec_id = sec_id if sec_id is not None else self._sec_id
-        self._parent = parent if parent is not None else self._parent
 
     def _generate_ifc_section_data(self):
         from ada.core.ifc_utils import create_ifcindexpolyline, create_ifcpolyline
@@ -4715,7 +4711,7 @@ class Section(Backend):
         )
         return profile, beamtype
 
-    def _import_from_ifc_beam(self, ifc_elem):
+    def _import_from_ifc_profile(self, ifc_elem):
         from ada.sections.utils import interpret_section_str
 
         self._ifc_profile = ifc_elem
@@ -4756,7 +4752,13 @@ class Section(Backend):
 
     @property
     def id(self):
-        return self._sec_id
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if type(value) is not int:
+            raise ValueError
+        self._id = value
 
     @property
     def h(self):
@@ -5455,7 +5457,6 @@ class Weld(Backend):
         self._p2 = p2
         self._normal = normal
         self._members = members
-        self._ifc_elem = None
 
     def _generate_ifc_elem(self):
         """
@@ -5475,12 +5476,6 @@ class Weld(Backend):
         # parent = self.parent.ifc_elem
 
         # ifc_fastener = f.createIfcFastener()
-
-    def ifc_elem(self):
-        if self._ifc_elem is None:
-            self._ifc_elem = self._generate_ifc_elem()
-
-        return self._ifc_elem
 
 
 class CurveRevolve:
@@ -5593,7 +5588,6 @@ class CurvePoly:
     ):
         self._tol = tol
         self._parent = parent
-        self._ifc_elem = None
         self._is_closed = is_closed
         self._debug = debug
 
@@ -5662,10 +5656,10 @@ class CurvePoly:
         self._edges = None
         self._seg_global_points = None
         self._nodes = None
-
+        self._ifc_elem = None
         self._local2d_to_polycurve(points2d, tol)
 
-    def _to_ifc_elem(self):
+    def _generate_ifc_elem(self):
         a = self.parent.parent.get_assembly()
         f = a.ifc_file
 
@@ -5910,7 +5904,7 @@ class CurvePoly:
     @property
     def ifc_elem(self):
         if self._ifc_elem is None:
-            self._ifc_elem = self._to_ifc_elem()
+            self._ifc_elem = self._generate_ifc_elem()
         return self._ifc_elem
 
 
