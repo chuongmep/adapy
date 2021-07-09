@@ -407,7 +407,7 @@ ASSEMBLAGE(
     CHAM_MATER=material,
     CARA_ELEM=element,
     CHARGE= {bc.name}_bc,
-    NUME_DDL=CO('dofs' ),
+    NUME_DDL=CO('dofs_eig'),
     MATR_ASSE = (
         _F(MATRICE=CO('stiff'), OPTION ='RIGI_MECA',),
         _F(MATRICE=CO('mass'), OPTION ='MASS_MECA', ),

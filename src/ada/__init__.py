@@ -58,6 +58,9 @@ __all__ = [
     "User",
 ]
 
+section_counter = Counter(1)
+material_counter = Counter(1)
+
 
 class Part(BackendGeom):
     """
@@ -5012,6 +5015,9 @@ class Section(Backend):
 
         sec_render = SectionRenderer()
         sec_render.display(self)
+
+    def __hash__(self):
+        return hash(self.guid)
 
     def __repr__(self):
         if self.type in SectionCat.circular + SectionCat.tubular:

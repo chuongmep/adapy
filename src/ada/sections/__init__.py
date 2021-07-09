@@ -1,3 +1,4 @@
+import logging
 import math
 
 from ada.core.utils import roundoff as rd
@@ -310,6 +311,7 @@ class GeneralProperties:
         elif SectionCat.is_box_profile(self.parent.type):
             self._calc_box()
         elif self.parent.type in SectionCat.general:
+            logging.error("Calculation of general section")
             pass  # it is known
         elif self.parent.type in SectionCat.tubular:
             self._calc_tubular()

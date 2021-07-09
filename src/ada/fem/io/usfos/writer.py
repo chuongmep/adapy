@@ -1,6 +1,7 @@
 import os
 from operator import attrgetter
 
+from ada.core.utils import roundoff
 from ada.fem.io.utils import _folder_prep
 
 
@@ -51,14 +52,15 @@ def to_fem(
         d.write(beam_str(part.fem, eccen) + "\n")
         d.write(shell_str(part) + "\n")
         d.write(eccent_str(eccen) + "\n")
-        d.write(sections_str(part) + "\n")
+        d.write(sections_str(part.fem) + "\n")
         d.write(materials_str(part) + "\n")
         d.write(mass_str(part.fem) + "\n")
         d.write(create_usfos_set_str(part.fem, nonstrus) + "\n")
 
-    if metadata["control_file"] is not None:
+    control_file = metadata.get("control_file", None)
+    if control_file is not None:
         with open(os.path.join(analysis_dir, r"usfos.fem"), "w") as d:
-            d.write(metadata["control_file"] + "\n")
+            d.write(control_file + "\n")
             d.write(nonstru_str(nonstrus) + "\n")
 
     print(f'Created an Usfos input deck at "{analysis_dir}"')
@@ -184,11 +186,12 @@ def materials_str(part):
             m.model.E,
             m.model.v,
             float(m.model.sig_y),
-            m.model.rho,
+            roundoff(m.model.rho),
             m.model.alpha,
         )
 
-    return mat_str + "\n".join(write_mat(mat) for mat in part.materials)
+    materials = {fs.material.id: fs.material for fs in part.fem.sections}
+    return mat_str + "\n".join(write_mat(mat) for mat in materials.values())
 
 
 def shell_str(part):
@@ -349,10 +352,10 @@ def beam_str(fem, eccen):
     return bm_str + "\n" + loc_str
 
 
-def sections_str(part):
+def sections_str(fem):
     """
     This method takes in a section object and returns the sesam_lib string for use in js-files.
-
+    :type fem: ada.fem.FEM
     """
     from ada import Section
     from ada.sections import SectionCat
@@ -375,7 +378,10 @@ def sections_str(part):
     cha_str = f"' Channels\n'{space}Geom ID     H     T-web    W-top   T-top    W-bot   T-bot Sh_y Sh_z\n"
     gens_str = f"' General Beams\n'{space}Geom ID     \n"
 
-    for s in sorted(part.sections, key=attrgetter("id")):
+    sections = {fs.section.id: fs.section for fs in fem.sections.beams}
+    for s_id in sorted(sections.keys()):
+        s = sections[s_id]
+        gp = s.properties
         assert isinstance(s, Section)
         if SectionCat.is_box_profile(s):
             # BOX      100000001    0.500   0.016   0.016   0.016    0.500
@@ -419,7 +425,6 @@ def sections_str(part):
 
         elif SectionCat.is_angular(s):
             print(f'Angular-Profiles are not supported by USFOS. Bm "{s.id}" will use GENBEAM')
-            gp = s.properties
             gp.calculate()
             gens_str += gen.format(
                 id=s.id,
@@ -437,7 +442,6 @@ def sections_str(part):
 
         elif SectionCat.is_channel_profile(s):
             print(f'Channel-Profiles are not supported by USFOS. Bm "{s.id}" will use GENBEAM')
-            gp = s.properties
             gp.calculate()
             gens_str += gen.format(
                 id=s.id,
@@ -455,7 +459,6 @@ def sections_str(part):
             # raise ValueError('Channel profiles currently not considered. Relevant for bm id "{}"'.format(s.id))
 
         elif SectionCat.is_general(s):
-            gp = s.properties
             gens_str += gen.format(
                 id=s.id,
                 area=gp.Ax,

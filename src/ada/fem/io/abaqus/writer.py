@@ -895,6 +895,9 @@ class AbaSection:
             return "PIPE"
         elif SectionCat.is_angular(sec_type):
             return "L"
+        elif SectionCat.is_channel_profile(sec_type):
+            logging.error(f'Profile type "{sec_type}" is not supported by Abaqus. Using a General Section instead')
+            return "GENERAL"
         else:
             raise Exception(f'Section type "{sec_type}" is not added to Abaqus beam export yet')
 

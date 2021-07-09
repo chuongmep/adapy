@@ -662,6 +662,8 @@ class Sections:
         :param section:
         :type section: ada.Section
         """
+        from ada import section_counter
+
         if section.name is None:
             raise Exception("Name is not allowed to be None.")
 
@@ -672,9 +674,13 @@ class Sections:
         if section.name in self._nmap.keys():
             return self._nmap[section.name]
 
-        if section.id is None or section.id in self._idmap.keys():
-            new_sec_id = len(self._sections) + 1
-            section.id = new_sec_id
+        if section.id is None:
+            section.id = next(section_counter)
+
+        if len(self._sections) > 0:
+            if section.id is None or section.id in self._idmap.keys():
+                new_sec_id = next(section_counter)
+                section.id = new_sec_id
 
         self._sections.append(section)
         self._idmap[section.id] = section
