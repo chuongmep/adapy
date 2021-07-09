@@ -2344,6 +2344,9 @@ class Beam(BackendGeom):
 
         return geom
 
+    def __hash__(self):
+        return hash(self.guid)
+
     def __eq__(self, other):
         """
 
