@@ -94,10 +94,11 @@ class GMesh:
         if interactive:
             gmsh.fltk.run()
 
-        nodes = list(gmsh.model.mesh.getNodes(-1, -1))
-
         # Extract Gmsh model information and import the data into a FEM model
-        fem._nodes = Nodes([self.get_mesh_nodes(n) for n in nodes[0]], parent=fem)
+        n_i, n_coords_flat, _ = gmsh.model.mesh.getNodes()
+        n_coords = n_coords_flat.reshape(len(n_i), 3)
+        nodes = np.c_[n_i, n_coords]
+        fem._nodes = Nodes(from_np_array=nodes, parent=fem)
 
         # Strange Error. When solving this loop using list comprehension it resulted in doubly defined elements...
         bm_elems = []
@@ -324,8 +325,7 @@ class GMesh:
 
             for i in range(numv):
                 p1 = fem_nodes[numv * j + i]
-                p1_co = gmsh.model.mesh.getNode(p1)[0]
-                no.append(Node(p1_co, p1))
+                no.append(fem.nodes.from_id(p1))
 
             if len(no) == 3:
                 myorder = [0, 2, 1]

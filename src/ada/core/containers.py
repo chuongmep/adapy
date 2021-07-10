@@ -695,7 +695,7 @@ class Nodes:
     :param nodes:
     :param unique_ids:
     :param parent:
-    :param from_np_array:
+    :param from_np_array: Valid numpy array with rows containing (id, x, y, z)
     """
 
     def __init__(self, nodes=None, unique_ids=True, parent=None, from_np_array=None):
@@ -735,6 +735,12 @@ class Nodes:
 
     def nlist_to_np_array(self, nlist):
         return np.array([(n.id, *n) for n in nlist])
+
+    def to_np_array(self, include_id=False):
+        if include_id:
+            return np.array([(n.id, *n.p) for n in self._nodes])
+        else:
+            return np.array([n.p for n in self._nodes])
 
     def __contains__(self, item):
         return item in self._nodes

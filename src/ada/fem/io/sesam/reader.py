@@ -3,6 +3,7 @@ import re
 from itertools import chain
 
 from ada.fem import Constraint, Csys, Elem, FemSection, FemSet, Mass, Spring
+from ada.fem._shapes import ElemShapes
 from ada.fem.io.utils import get_ff_regex, str_to_int
 from ada.materials.metals import CarbonSteel
 from ada.sections import GeneralProperties
@@ -404,7 +405,6 @@ def get_sections(bulk_str, fem):
     from ada import Section
     from ada.core.containers import Sections
     from ada.core.utils import roundoff, unit_vector, vector_length
-    from ada.fem import ElemShapes
     from ada.fem.containers import FemSections
 
     # Get section names

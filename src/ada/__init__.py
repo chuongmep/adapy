@@ -1363,7 +1363,7 @@ class Assembly(Part):
             return None
 
         if res_path.exists():
-            from ada.base.render_fem import Results
+            from ada.fem.results import Results
 
             return Results(res_path)
         else:
@@ -2768,6 +2768,9 @@ class Pipe(BackendGeom):
     :param content:
     :param metadata:
     :param colour:
+    :param units:
+    :param guid:
+    :param ifc_elem:
     """
 
     def __init__(

@@ -276,14 +276,14 @@ class FemElements:
 
     @property
     def shell(self):
-        from ada.fem import ElemShapes
+        from ada.fem._shapes import ElemShapes
 
         skipel = ["MASS", "SPRING1"]
         return filter(lambda x: x.type not in skipel and x.type in ElemShapes.shell, self._elements)
 
     @property
     def beams(self):
-        from ada.fem import ElemShapes
+        from ada.fem._shapes import ElemShapes
 
         skipel = ["MASS", "SPRING1"]
         return filter(lambda x: x.type not in skipel and x.type in ElemShapes.beam, self._elements)
@@ -294,7 +294,7 @@ class FemElements:
 
         :return: Connector elements (lazy iterator)
         """
-        from ada.fem import ElemShapes
+        from ada.fem._shapes import ElemShapes
 
         skipel = ["MASS", "SPRING1"]
         return filter(lambda x: x.type not in skipel and x.type in ElemShapes.connectors, self._elements)

@@ -10,7 +10,9 @@ from pythreejs import (
     PointsMaterial,
 )
 
-from .common import format_color
+
+def format_color(r, g, b):
+    return "#%02x%02x%02x" % (r, g, b)
 
 
 def edges_to_mesh(name, np_edge_vertices, np_edge_indices, edge_color, linewidth=1):

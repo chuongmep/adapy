@@ -3,7 +3,8 @@ import logging
 import numpy as np
 
 from ada.config import Settings as _Settings
-from ada.fem import ElemShapes, FemSection, Step
+from ada.fem import FemSection, Step
+from ada.fem._shapes import ElemShapes
 from ada.fem.containers import FemSections
 
 from ..utils import _folder_prep, get_fem_model_from_assembly

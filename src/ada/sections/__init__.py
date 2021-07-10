@@ -286,6 +286,8 @@ class GeneralProperties:
             self._Scheny = -(y - ty / 2 + q)
             self._Cy = by - y
 
+        self._Schenz = 0
+
     def calculate(self):
         """
         Calculates the cross section properties based on the parent section.
@@ -317,7 +319,7 @@ class GeneralProperties:
             self._calc_tubular()
         elif SectionCat.is_hp_profile(self.parent.type):
             self._calc_angular()
-        elif self.parent.type in SectionCat.channels:
+        elif SectionCat.is_channel_profile(self.parent):
             self._calc_channel()
         elif SectionCat.is_flatbar(self.parent.type):
             self._calc_flatbar()

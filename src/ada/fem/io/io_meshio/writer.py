@@ -5,7 +5,7 @@ import meshio
 import numpy as np
 
 from ada.config import Settings as _Settings
-from ada.fem import ElemShapes
+from ada.fem._shapes import ElemShapes
 
 
 def meshio_to_fem(
