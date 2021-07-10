@@ -6,6 +6,7 @@ from pythreejs import (
     LineSegments,
     Mesh,
     MeshBasicMaterial,
+    MeshPhongMaterial,
     Points,
     PointsMaterial,
 )
@@ -92,3 +93,26 @@ def faces_to_mesh(name, vertices, faces, colors, opacity=None):
         material=material,
     )
     return mesh
+
+
+def animate_mesh(mesh, norm_displ_verts, displ_time, displ_magn):
+    from pythreejs import (
+        AnimationAction,
+        AnimationClip,
+        AnimationMixer,
+        NumberKeyframeTrack,
+    )
+
+    mesh.morphAttributes = {
+        "position": [
+            BufferAttribute(norm_displ_verts),
+        ]
+    }
+
+    morphed_mesh = Mesh(mesh, MeshPhongMaterial(color="#ff3333", shininess=150, morphTargets=True))
+
+    pill_track = NumberKeyframeTrack(name=".morphTargetInfluences[0]", times=displ_time, values=displ_magn)
+    pill_clip = AnimationClip(tracks=[pill_track])
+    pill_action = AnimationAction(AnimationMixer(morphed_mesh), pill_clip, morphed_mesh)
+
+    return pill_action

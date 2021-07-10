@@ -3,7 +3,7 @@ import unittest
 from common import example_files
 
 from ada.core.utils import traverse_hdf_datasets
-from ada.fem.io.code_aster.results import get_eigen_frequency_animation
+from ada.fem.io.code_aster.results import get_eigen_frequency_deformed_meshes
 
 code_aster_files = example_files / "fem_files" / "code_aster"
 
@@ -15,7 +15,7 @@ class FemResults(unittest.TestCase):
         traverse_hdf_datasets(rmed_bm_eig)
 
     def test_ca_bm_eig(self):
-        get_eigen_frequency_animation(rmed_bm_eig)
+        get_eigen_frequency_deformed_meshes(rmed_bm_eig)
 
 
 if __name__ == "__main__":
