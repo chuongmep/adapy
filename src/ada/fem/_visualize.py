@@ -22,6 +22,22 @@ class BBox:
     center: list
 
 
+def fem_to_mesh(
+    fem: FEM, face_colors=None, vertex_colors=(8, 8, 8), edge_color=(8, 8, 8), edge_width=1, vertex_width=1
+):
+    from ada.base.threejs_geom import faces_to_mesh
+
+    vertices, faces, edges = get_vertices_from_fem(fem), get_faces_from_fem(fem), get_edges_from_fem(fem)
+
+    name = fem.name
+
+    vertices_m = vertices_to_mesh(f"{name}_vertices", vertices, vertex_colors, vertex_width)
+    edges_m = edges_to_mesh(f"{name}_edges", vertices, edges, edge_color=edge_color, linewidth=edge_width)
+    faces_mesh = faces_to_mesh(f"{name}_faces", vertices, faces, colors=face_colors)
+
+    return vertices_m, edges_m, faces_mesh
+
+
 class FemRenderer:
     def __init__(self):
         self._view_items = []
@@ -30,9 +46,13 @@ class FemRenderer:
         # the group of 3d and 2d objects to render
         self._displayed_pickable_objects = Group()
 
-    def add_fem(self, fem):
+    def add_fem(self, fem: FEM):
         vertices, faces, edges = get_vertices_from_fem(fem), get_faces_from_fem(fem), get_edges_from_fem(fem)
         self._view_items.append(ViewItem(fem, vertices, edges, faces))
+
+    def to_mesh(self):
+        for vt in self._view_items:
+            self._view_to_mesh(vt)
 
     def _view_to_mesh(
         self, vt, face_colors=None, vertex_colors=(8, 8, 8), edge_color=(8, 8, 8), edge_width=1, vertex_width=1
@@ -61,7 +81,7 @@ class FemRenderer:
         return mi, ma, center
 
 
-def get_edges_and_faces_from_mesh(mesh):
+def get_edges_and_faces_from_meshio(mesh):
     """
 
     :param mesh:
@@ -93,8 +113,12 @@ def get_faces_from_fem(fem, convert_bm_to_shell=False):
     :return:
     :rtype: list
     """
+    from ._shapes import ElemShapes
+
     ids = []
     for el in fem.elements.elements:
+        if ElemShapes.is_beam_elem(el):
+            continue
         for f in el.shape.faces:
             # Convert to indices, not id
             ids += [[int(e.id - 1) for e in f]]
@@ -136,7 +160,7 @@ def get_vertices_from_fem(fem):
     :return:
     """
 
-    return np.asarray([n.p for n in fem.nodes._nodes], dtype="float32")
+    return np.asarray([n.p for n in fem.nodes.nodes], dtype="float32")
 
 
 def get_bounding_box(vertices):

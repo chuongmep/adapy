@@ -863,6 +863,10 @@ class Nodes:
     def min_nid(self):
         return min(self.dmap.keys()) if len(self.dmap.keys()) > 0 else 0
 
+    @property
+    def nodes(self):
+        return self._nodes
+
     def get_by_volume(self, p=None, vol_box=None, vol_cyl=None, tol=_Settings.point_tol):
         """
 

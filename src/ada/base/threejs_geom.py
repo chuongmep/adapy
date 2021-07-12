@@ -29,8 +29,8 @@ def edges_to_mesh(name, np_edge_vertices, np_edge_indices, edge_color, linewidth
     """
     edge_geometry = BufferGeometry(
         attributes={
-            "position": BufferAttribute(np_edge_vertices),
-            "index": BufferAttribute(np_edge_indices),
+            "position": BufferAttribute(np_edge_vertices, normalized=False),
+            "index": BufferAttribute(np_edge_indices, normalized=False),
         }
     )
     edge_material = LineBasicMaterial(color=format_color(*edge_color), linewidth=linewidth)

@@ -3,9 +3,10 @@ import unittest
 import meshio
 import numpy as np
 
-from ada.base.render_fem import Results, render_mesh, viz_meshio_mesh
+from ada.base.render_fem import render_mesh, viz_meshio_mesh
 from ada.config import Settings
 from ada.fem._visualize import get_bounding_box, get_vertices_from_fem
+from ada.fem.results import Results
 from ada.param_models.fem_models import beam_ex1
 
 vertices = np.asarray(

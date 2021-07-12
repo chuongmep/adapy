@@ -40,7 +40,7 @@ class ElemShapes:
 
     @staticmethod
     def is_beam_elem(elem: Elem):
-        if elem in ElemShapes.beam:
+        if elem.type in ElemShapes.beam:
             return True
         else:
             return False

@@ -5,7 +5,7 @@ from IPython.display import display
 from ipywidgets import Dropdown, HBox, VBox
 
 from ._visualize import (
-    get_edges_and_faces_from_mesh,
+    get_edges_and_faces_from_meshio,
     get_edges_from_fem,
     get_faces_from_fem,
     get_vertices_from_fem,
@@ -87,7 +87,7 @@ class Results:
         self._mesh = mesh
         self._vertices = np.asarray(mesh.points, dtype="float32")
 
-        edges, faces = get_edges_and_faces_from_mesh(mesh)
+        edges, faces = get_edges_and_faces_from_meshio(mesh)
         self._edges = np.asarray(edges, dtype="uint16").ravel()
         self._faces = np.asarray(faces, dtype="uint16").ravel()
 
